@@ -4,27 +4,11 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/mattn/go-sqlite3"
 )
 
-var (
-	ErrDuplicate    = errors.New("the record already exists")
-	ErrNotExists    = errors.New("row not exists")
-	ErrUpdateFailed = errors.New("update failed")
-	ErrDeleteFailed = errors.New("delete failed")
-)
-
-type SQLiteRepository struct {
-	db *sql.DB
-}
-
-func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
-	return &SQLiteRepository{
-		db: db,
-	}
-}
-
-func (r *SQLiteRepository) Migrate() error {
+func (r *SQLiteRepository) MigrateThings() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS things(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,31 +17,25 @@ func (r *SQLiteRepository) Migrate() error {
 		category TEXT NOT NULL
 	);
 	`
-
-	// CREATE TABLE IF NOT EXISTS(ratings
-	// 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	// 	uuid TEXT NOT NULL UNIQUE,
-	// 	winner TEXT NOT NULL,
-	// 	loser TEXT NOT NULL
-	// );
-
 	_, err := r.db.Exec(query)
 	return err
 }
 
-func (r *SQLiteRepository) Create(thing Thing) (*Thing, error) {
+func (r *SQLiteRepository) CreateThing(thing Thing) (*Thing, error) {
+	uuid := uuid.New()
+
 	query := `
 	INSERT INTO things(
 		uuid, 
 		name, 
-		category,
+		category
 	) values(
 		?,
 		?,
 		?
 	);
 	`
-	res, err := r.db.Exec(query, thing.UUID, thing.Name, thing.Category)
+	res, err := r.db.Exec(query, uuid, thing.Name, thing.Category)
 
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -74,11 +52,12 @@ func (r *SQLiteRepository) Create(thing Thing) (*Thing, error) {
 		return nil, err
 	}
 	thing.ID = id
+	thing.UUID = uuid
 
 	return &thing, nil
 }
 
-func (r *SQLiteRepository) All() ([]Thing, error) {
+func (r *SQLiteRepository) AllThings() ([]Thing, error) {
 	rows, err := r.db.Query("SELECT * FROM things")
 
 	if err != nil {
@@ -91,7 +70,7 @@ func (r *SQLiteRepository) All() ([]Thing, error) {
 
 	for rows.Next() {
 		var thing Thing
-		if err := rows.Scan(&thing.ID, &thing.UUID, &thing.name, &thing.Category); err != nil {
+		if err := rows.Scan(&thing.ID, &thing.UUID, &thing.Name, &thing.Category); err != nil {
 			return nil, err
 		}
 		all = append(all, thing)
@@ -100,11 +79,11 @@ func (r *SQLiteRepository) All() ([]Thing, error) {
 	return all, nil
 }
 
-func (r *SQLiteRepository) GetByUUID(uuid string) (&Thing, error) {
+func (r *SQLiteRepository) GetThingByUUID(uuid string) (*Thing, error) {
 	row := r.db.QueryRow("SELECT * FROM things WHERE uuid = ?", uuid)
 
 	var thing Thing
-	if err := row.Scan(&Thing.ID, &Thing.UUID, &Thing.Name, &Thing.Category); err != nil {
+	if err := row.Scan(&thing.ID, &thing.UUID, &thing.Name, &thing.Category); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotExists
 		}
@@ -113,7 +92,7 @@ func (r *SQLiteRepository) GetByUUID(uuid string) (&Thing, error) {
 	return &thing, nil
 }
 
-func (r *SQLiteRepository) Update(id int64, updated Thing) (*Thing, error) {
+func (r *SQLiteRepository) UpdateThing(id int64, updated Thing) (*Thing, error) {
 	if id == 0 {
 		return nil, errors.New("invalid updated ID")
 	}
@@ -134,7 +113,7 @@ func (r *SQLiteRepository) Update(id int64, updated Thing) (*Thing, error) {
 	return &updated, nil
 }
 
-func (r *SQLiteRepository) Delete(id int64) error {
+func (r *SQLiteRepository) DeleteThing(id int64) error {
 	res, err := r.db.Exec("DELETE FROM thing WHERE id = ?", id)
 	if err != nil {
 		return err
