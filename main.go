@@ -26,45 +26,50 @@ func main() {
 
 	r := gin.Default()
 
-	r.GET("/things", func(c *gin.Context) {
-		things, err := thingRepository.AllThings()
+	v1 := r.Group("/api/v1")
+	{
+		v1.GET("/things", func(c *gin.Context) {
+			things, err := thingRepository.AllThings()
 
-		if nil != err {
-			log.Fatal(err)
-		}
+			if nil != err {
+				log.Fatal(err)
+			}
 
-		c.IndentedJSON(http.StatusOK, things)
-	})
+			c.IndentedJSON(http.StatusOK, things)
+		})
 
-	r.GET("/things/:thing", func(c *gin.Context) {
-		thingId := c.Param("thing")
+		v1.GET("/things/:thing", func(c *gin.Context) {
+			thingId := c.Param("thing")
 
-		thing, err := thingRepository.GetThingByUUID(thingId)
+			thing, err := thingRepository.GetThingByUUID(thingId)
 
-		if nil != err {
-			c.JSON(http.StatusInternalServerError, err)
-			return
-		}
+			if nil != err {
+				c.JSON(http.StatusInternalServerError, err)
+				return
+			}
 
-		c.IndentedJSON(http.StatusOK, thing)
-	})
+			c.IndentedJSON(http.StatusOK, thing)
+		})
 
-	r.POST("/things", func(c *gin.Context) {
-		var json thing.Thing
-		if err := c.ShouldBindJSON(&json); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+		v1.POST("/things", func(c *gin.Context) {
+			var json thing.Thing
+			if err := c.ShouldBindJSON(&json); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 
-		thing, err := thingRepository.CreateThing(json)
+			thing, err := thingRepository.CreateThing(json)
 
-		if nil != err {
-			c.JSON(http.StatusInternalServerError, err)
-			return
-		}
+			if nil != err {
+				c.JSON(http.StatusInternalServerError, err)
+				return
+			}
 
-		c.IndentedJSON(http.StatusCreated, thing)
-	})
+			c.IndentedJSON(http.StatusCreated, thing)
+		})
+	}
+
+	r.Static("/app", "./web/.output/public")
 
 	r.Run()
 }
